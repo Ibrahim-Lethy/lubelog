@@ -93,17 +93,14 @@ namespace CarCareTracker.Controllers
                     DashboardMetrics = x.DashboardMetrics,
                     VehicleIdentifier = x.VehicleIdentifier
                 };
+                var vehicleRecords = _vehicleLogic.GetVehicleRecords(x.Id);
+                vehicleVM.LastReportedMileage = _vehicleLogic.GetMaxMileage(vehicleRecords);
+                vehicleVM.HasReminders = _vehicleLogic.GetVehicleHasUrgentOrPastDueReminders(x.Id, vehicleVM.LastReportedMileage);
                 //dashboard metrics
                 if (x.DashboardMetrics.Any())
                 {
-                    var vehicleRecords = _vehicleLogic.GetVehicleRecords(x.Id);
                     var userConfig = _config.GetUserConfig(User);
                     var distanceUnit = x.UseHours ? "h" : userConfig.UseMPG ? "mi." : "km";
-                    if (vehicleVM.DashboardMetrics.Contains(DashboardMetric.Default))
-                    {
-                        vehicleVM.LastReportedMileage = _vehicleLogic.GetMaxMileage(vehicleRecords);
-                        vehicleVM.HasReminders = _vehicleLogic.GetVehicleHasUrgentOrPastDueReminders(x.Id, vehicleVM.LastReportedMileage);
-                    }
                     if (vehicleVM.DashboardMetrics.Contains(DashboardMetric.CostPerMile))
                     {
                         var vehicleTotalCost = _vehicleLogic.GetVehicleTotalCost(vehicleRecords);

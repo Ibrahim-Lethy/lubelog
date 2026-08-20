@@ -19,6 +19,11 @@
             <span class="badge bg-danger" data-aggregate-type="veryurgent-count">@($"{translator.Translate(userLanguage, "Very Urgent")}: {Model.Where(x => x.Urgency == ReminderUrgency.VeryUrgent).Count()}")</span>
             <span class="badge text-bg-warning" data-aggregate-type="urgent-count">@($"{translator.Translate(userLanguage, "Urgent")}: {Model.Where(x => x.Urgency == ReminderUrgency.Urgent).Count()}")</span>
             <span class="badge bg-success" data-aggregate-type="noturgent-count">@($"{translator.Translate(userLanguage, "Not Urgent")}: {Model.Where(x => x.Urgency == ReminderUrgency.NotUrgent).Count()}")</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Reminder view">
+                <button type="button" class="btn btn-outline-secondary reminder-view-filter" onclick="filterMaintenanceReminders('all', this)">All</button>
+                <button type="button" class="btn btn-outline-secondary reminder-view-filter" onclick="filterMaintenanceReminders('maintenance', this)">Maintenance</button>
+                <button type="button" class="btn btn-outline-secondary reminder-view-filter" onclick="filterMaintenanceReminders('other', this)">Other</button>
+            </div>
             @foreach (string recordTag in recordTags)
             {
                 <span onclick="filterReminderTable(this)" class="user-select-none rounded-pill badge bg-secondary tagfilter" style="cursor:pointer;">@recordTag</span>
@@ -37,6 +42,9 @@
                         <span class="visually-hidden">Toggle Dropdown</span>
                     </button>
                     <ul class="dropdown-menu record-dropdown">
+                        <li><a class="dropdown-item" href="#" onclick="showAddMaintenanceModal()">@translator.Translate(userLanguage, "Add Maintenance Item")</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="showMaintenanceImportModal()">@translator.Translate(userLanguage, "Import Maintenance Data")</a></li>
+                        <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="#" onclick="printTab()">@translator.Translate(userLanguage, "Print")</a></li>
                         <li><a class="dropdown-item" href="#" onclick="searchTableRows('reminder-tab-pane')">@translator.Translate(userLanguage, "Search")</a></li>
                         <li class="nav-no-copy"><hr class="dropdown-divider"></li>
@@ -86,6 +94,12 @@
                         </li>
                         <li class="dropdown-item">
                             <div class="list-group-item">
+                                <input class="form-check-input col-visible-toggle" data-column-toggle='lastservice' onChange="showTableColumns(this, 'ReminderRecord')" type="checkbox" id="chkCol_LastService">
+                                <label class="form-check-label stretched-link" for="chkCol_LastService">@translator.Translate(userLanguage, "Last Service")</label>
+                            </div>
+                        </li>
+                        <li class="dropdown-item">
+                            <div class="list-group-item">
                                 <input class="form-check-input col-visible-toggle" data-column-toggle='description' onChange="showTableColumns(this, 'ReminderRecord')" type="checkbox" id="chkCol_Description" checked>
                                 <label class="form-check-label stretched-link" for="chkCol_Description">@translator.Translate(userLanguage, "Description")</label>
                             </div>
@@ -129,8 +143,9 @@
                     <th scope="col" data-column="metric" class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Metric")</th>
                     <th scope="col" data-column="date" style="display:none;" class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Date")</th>
                     <th scope="col" data-column="odometer" style="display:none;"  class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Odometer")</th>
-                    <th scope="col" data-column="duedays" style="display:none;" class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Due Days")</th>
-                    <th scope="col" data-column="duedistance" style="display:none;" class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Due Distance")</th>
+                    <th scope="col" data-column="duedays" style="display:none; cursor:pointer;" onclick="toggleSort('reminder-tab-pane', this)" class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Due Days")</th>
+                    <th scope="col" data-column="duedistance" style="display:none; cursor:pointer;" onclick="toggleSort('reminder-tab-pane', this)" class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Due Distance")</th>
+                    <th scope="col" data-column="lastservice" style="display:none;" class="col-2 flex-grow-1 flex-shrink-1 text-truncate">@translator.Translate(userLanguage, "Last Service")</th>
                     <th scope="col" data-column="description" class="flex-grow-1 flex-shrink-1 text-truncate @(hasRefresh ? "col-3" : "col-4")">@translator.Translate(userLanguage, "Description")</th>
                     <th scope="col" data-column="notes" class="flex-grow-1 flex-shrink-1 col-2 text-truncate">@translator.Translate(userLanguage, "Notes")</th>
                     @if (hasRefresh)
@@ -143,9 +158,13 @@
             <tbody>
                 @foreach (ReminderRecordViewModel reminderRecord in Model)
                 {
-                    <tr class="d-flex user-select-none" style="cursor:pointer;" onmouseup="stopEvent()" ontouchstart="detectRowLongTouch(this)" ontouchend="detectRowTouchEndPremature(this)" data-rowId="@reminderRecord.Id" oncontextmenu="showTableContextMenu(this)" onmousemove="rangeMouseMove(this)" onclick="handleTableRowClick(this, showEditReminderRecordModal,@reminderRecord.Id)" data-tags='@string.Join(" ", reminderRecord.Tags)'>
+                    <tr class="d-flex user-select-none" style="cursor:pointer;" onmouseup="stopEvent()" ontouchstart="detectRowLongTouch(this)" ontouchend="detectRowTouchEndPremature(this)" data-maintenance="@reminderRecord.IsMaintenance.ToString().ToLower()" data-proximity="@reminderRecord.Proximity" data-rowId="@reminderRecord.Id" oncontextmenu="showTableContextMenu(this)" onmousemove="rangeMouseMove(this)" onclick="handleTableRowClick(this, showEditReminderRecordModal,@reminderRecord.Id)" data-tags='@string.Join(" ", reminderRecord.Tags)'>
                             <td data-label="@translator.Translate(userLanguage, "Urgency")" class="col-2 flex-grow-1 flex-shrink-1" data-column="urgency">
-                            @if (reminderRecord.Urgency == ReminderUrgency.VeryUrgent)
+                            @if (reminderRecord.IsMaintenance && !reminderRecord.HistoryVerified)
+                            {
+                                <span class="badge text-bg-secondary">@translator.Translate(userLanguage, "History Not Verified")</span>
+                            }
+                            else if (reminderRecord.Urgency == ReminderUrgency.VeryUrgent)
                             {
                                 <span class="badge text-bg-danger">@translator.Translate(userLanguage, "Very Urgent")</span>
                             }
@@ -188,12 +207,15 @@
                             <td data-label="@translator.Translate(userLanguage, "Due Distance")" class="col-2 text-truncate flex-grow-1 flex-shrink-1" style="display:none;" data-column="duedistance">
                             @(reminderRecord.UserMetric == ReminderMetric.Both || reminderRecord.UserMetric == ReminderMetric.Odometer ? reminderRecord.DueMileage : "---")
                         </td>
+                            <td data-label="@translator.Translate(userLanguage, "Last Service")" class="col-2 text-truncate flex-grow-1 flex-shrink-1" style="display:none;" data-column="lastservice">
+                            @(reminderRecord.LastServiceDate.HasValue ? $"{reminderRecord.LastServiceDate.Value.ToShortDateString()} / {(reminderRecord.LastServiceMileage?.ToString() ?? "---")}" : "---")
+                        </td>
                             <td data-label="@translator.Translate(userLanguage, "Description")" data-column="description" class="flex-grow-1 flex-shrink-1 text-truncate @(hasRefresh ? "col-3" : "col-4")">@reminderRecord.Description</td>
                             <td data-label="@translator.Translate(userLanguage, "Notes")" data-column="notes" class="flex-grow-1 flex-shrink-1 col-2 text-truncate">@StaticHelper.TruncateStrings(reminderRecord.Notes)</td>
                         @if (hasRefresh)
                         {
                                 <td data-label="@translator.Translate(userLanguage, "Done")" class="flex-grow-1 flex-shrink-1 col-2 text-truncate hideOnPrint" data-column="done">
-                                @if((reminderRecord.Urgency == ReminderUrgency.VeryUrgent || reminderRecord.Urgency == ReminderUrgency.PastDue) && reminderRecord.IsRecurring)
+                                @if((reminderRecord.Urgency == ReminderUrgency.VeryUrgent || reminderRecord.Urgency == ReminderUrgency.PastDue) && reminderRecord.IsRecurring && !reminderRecord.IsMaintenance)
                                 {
                                     <button type="button" class="btn btn-secondary" onclick="markDoneReminderRecord(@reminderRecord.Id, this)"><i class="bi bi-check-lg"></i></button>
                                 }
@@ -249,4 +271,8 @@
 @if (userColumnPreferences.Any())
 {
     @await Html.PartialAsync("_UserColumnPreferences", userColumnPreferences)
+}
+@if (Model.Any(x => x.IsMaintenance))
+{
+    <script>setTimeout(() => $(".reminder-view-filter").eq(1).trigger("click"), 0);</script>
 }

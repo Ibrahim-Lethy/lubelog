@@ -1,5 +1,5 @@
 ﻿function showAddServiceRecordModal() {
-    $.get('/Vehicle/GetAddServiceRecordPartialView', function (data) {
+    $.get(`/Vehicle/GetAddServiceRecordPartialView?vehicleId=${GetVehicleId().vehicleId}`, function (data) {
         if (data) {
             $("#serviceRecordModalContent").html(data);
             //initiate datepicker
@@ -88,6 +88,7 @@ function getAndValidateServiceRecordValues() {
     var serviceDate = $("#serviceRecordDate").val();
     var serviceMileage = parseInt(globalParseFloat($("#serviceRecordMileage").val())).toString();
     var serviceDescription = $("#serviceRecordDescription").val();
+    var serviceKey = $("#serviceRecordMaintenanceItem").val();
     var serviceCost = $("#serviceRecordCost").val();
     var serviceNotes = $("#serviceRecordNotes").val();
     var serviceTags = $("#serviceRecordTag").val();
@@ -133,6 +134,7 @@ function getAndValidateServiceRecordValues() {
         id: serviceRecordId,
         hasError: hasError,
         vehicleId: vehicleId,
+        serviceKey: serviceKey,
         date: serviceDate,
         mileage: serviceMileage,
         description: serviceDescription,
@@ -147,5 +149,16 @@ function getAndValidateServiceRecordValues() {
         deletedRequisitionHistory: deletedSupplyUsageHistory,
         reminderRecordId: recurringReminderRecordId,
         copySuppliesAttachment: copySuppliesAttachments
+    }
+}
+
+function toggleServiceMaintenanceItem() {
+    var selected = $("#serviceRecordMaintenanceItem option:selected");
+    var input = $("#serviceRecordDescription");
+    if (!selected.val()) {
+        input.prop("readonly", false);
+    } else {
+        input.val(selected.data("description"));
+        input.prop("readonly", true);
     }
 }

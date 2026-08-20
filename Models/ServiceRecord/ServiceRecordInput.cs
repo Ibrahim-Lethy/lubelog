@@ -4,6 +4,8 @@
     {
         public int Id { get; set; }
         public int VehicleId { get; set; }
+        public string ServiceKey { get; set; } = string.Empty;
+        public List<ReminderRecord> MaintenanceItems { get; set; } = new List<ReminderRecord>();
         public List<int> ReminderRecordId { get; set; } = new List<int>();
         public string Date { get; set; } = DateTime.Now.ToShortDateString();
         public int Mileage { get; set; }
@@ -20,6 +22,7 @@
         public ServiceRecord ToServiceRecord() { return new ServiceRecord { 
             Id = Id, 
             VehicleId = VehicleId, 
+            ServiceKey = ServiceKey,
             Date = DateTime.Parse(Date), 
             Cost = Cost, 
             Mileage = Mileage, 

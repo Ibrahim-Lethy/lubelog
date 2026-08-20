@@ -557,6 +557,33 @@ function toggleSort(tabName, sender) {
         sortTable(tabName, sortColumn, false);
     }
 }
+function quickUpdateOdometer(vehicleId, currentMileage) {
+    var now = new Date();
+    var localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    Swal.fire({
+        title: "Update Odometer",
+        html: `<label for="quickOdometerMileage" class="form-label">Current odometer</label><input id="quickOdometerMileage" type="number" min="${currentMileage}" value="${currentMileage}" class="swal2-input"><label for="quickOdometerDate" class="form-label">Date</label><input id="quickOdometerDate" type="date" value="${localDate}" class="swal2-input">`,
+        showCancelButton: true,
+        confirmButtonText: "Save",
+        preConfirm: () => {
+            var mileage = parseInt($("#quickOdometerMileage").val());
+            var date = $("#quickOdometerDate").val();
+            if (isNaN(mileage) || mileage < currentMileage || !date) return Swal.showValidationMessage("Enter a valid reading and date");
+            return { mileage, date };
+        }
+    }).then(result => {
+        if (!result.isConfirmed) return;
+        $.post("/Vehicle/QuickUpdateOdometer", { vehicleId, mileage: result.value.mileage, date: result.value.date }, function (data) {
+            if (!data.success) return errorToast(data.message);
+            successToast(data.message);
+            if (typeof loadGarage == "function") loadGarage();
+            if (typeof getVehicleOdometerRecords == "function") getVehicleOdometerRecords(vehicleId);
+            if (typeof getVehicleReminders == "function") getVehicleReminders(vehicleId);
+            if (typeof getVehicleReport == "function") getVehicleReport(vehicleId);
+            $(".quick-odometer-value").contents().filter(function () { return this.nodeType == 3; }).last().replaceWith(Number(result.value.mileage).toLocaleString());
+        });
+    });
+}
 function sortTable(tabName, columnName, desc) {
     //get column index.
     var columns = $(`#${tabName} table th`).toArray().map(x => x.innerText);

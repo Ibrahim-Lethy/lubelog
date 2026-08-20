@@ -113,6 +113,7 @@ namespace CarCareTracker.Controllers
         public IActionResult Index(int vehicleId)
         {
             var data = _dataAccess.GetVehicleById(vehicleId);
+            ViewBag.CurrentMileage = _vehicleLogic.GetMaxMileage(vehicleId);
             return View(data);
         }
         [HttpGet]

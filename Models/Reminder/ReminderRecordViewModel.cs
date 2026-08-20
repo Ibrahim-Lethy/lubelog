@@ -9,6 +9,12 @@
         public int DueDays { get; set; }
         public int DueMileage { get; set; }
         public string Description { get; set; } = string.Empty;
+        public bool IsMaintenance { get; set; } = false;
+        public string ServiceKey { get; set; } = string.Empty;
+        public bool HistoryVerified { get; set; } = false;
+        public DateTime? LastServiceDate { get; set; }
+        public int? LastServiceMileage { get; set; }
+        public double Proximity { get; set; }
         public string Notes { get; set; } = string.Empty;
         /// <summary>
         /// The metric the user selected to calculate the urgency of this reminder.

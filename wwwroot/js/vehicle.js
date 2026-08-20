@@ -263,6 +263,22 @@ function showAddReminderModal(reminderModalInput) {
         });
     }
 }
+function showAddMaintenanceModal() {
+    let model = {
+        vehicleId: GetVehicleId().vehicleId,
+        isMaintenance: true,
+        isRecurring: true,
+        fixedIntervals: false,
+        metric: "Both",
+        createdFromRecord: false
+    };
+    $.post('/Vehicle/GetAddReminderRecordPartialView', { reminderModel: model }, function (data) {
+        $("#reminderRecordModalContent").html(data);
+        initDatePicker($('#reminderDate'), true);
+        initTagSelector($("#reminderRecordTag"));
+        $("#reminderRecordModal").modal("show");
+    });
+}
 function getVehicleHaveImportantReminders(vehicleId) {
     setTimeout(function () {
         $.get(`/Vehicle/GetVehicleHaveUrgentOrPastDueReminders?vehicleId=${vehicleId}`, function (data) {

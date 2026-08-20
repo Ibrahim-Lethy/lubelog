@@ -56,17 +56,14 @@
                                 <p class='display-6 mb-0'></p>
                                 <span class="badge garage-metric-badge">@($"{translator.Translate(userLanguage, "SOLD")} {vehicle.SoldDate}")</span>
                             </div>
-                        } else if (vehicle.DashboardMetrics.Any())
+                        } else
                         {
                             <div class="vehicle-sold-banner d-flex gap-2 flex-wrap">
-                            @if (vehicle.DashboardMetrics.Contains(DashboardMetric.Default) && vehicle.LastReportedMileage != default)
-                            {
-                                    <span class="badge garage-metric-badge"><i class="bi bi-speedometer me-2"></i>@vehicle.LastReportedMileage.ToString("N0")</span>
-                                    @if (vehicle.HasReminders)
-                                    {
-                                        <span class="badge garage-metric-badge" style="order: 1;"><i class="bi bi bi-bell-fill text-warning"></i></span>
-                                    }
-                            }
+                                <button type="button" class="badge garage-metric-badge border-0 quick-odometer-value" onclick="event.stopPropagation(); quickUpdateOdometer(@vehicle.Id, @vehicle.LastReportedMileage)" aria-label="@translator.Translate(userLanguage, "Update Odometer")"><i class="bi bi-speedometer me-2"></i>@vehicle.LastReportedMileage.ToString("N0")</button>
+                                @if (vehicle.HasReminders)
+                                {
+                                    <span class="badge garage-metric-badge" style="order: 1;"><i class="bi bi bi-bell-fill text-warning"></i></span>
+                                }
                             @if (vehicle.DashboardMetrics.Contains(DashboardMetric.CostPerMile) && vehicle.CostPerMile != default)
                             {
                                     <span class="badge garage-metric-badge"><i class="bi bi-cash-coin me-2"></i>@($"{vehicle.CostPerMile.ToString("C2")}/{vehicle.DistanceUnit}")</span>
