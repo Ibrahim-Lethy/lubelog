@@ -189,6 +189,8 @@ function getAndValidateReminderRecordValues() {
     var reminderDate = $("#reminderDate").val();
     var reminderMileage = parseInt(globalParseFloat($("#reminderMileage").val())).toString();
     var reminderDescription = $("#reminderDescription").val();
+    var reminderIsMaintenance = $("#reminderIsMaintenance").is(":checked");
+    var reminderServiceKey = $("#reminderServiceKey").val() || "";
     var reminderNotes = $("#reminderNotes").val();
     var reminderOption = $('#reminderOptions input:radio:checked').val();
     var reminderIsRecurring = $("#reminderIsRecurring").is(":checked");
@@ -224,6 +226,12 @@ function getAndValidateReminderRecordValues() {
         $("#reminderDescription").addClass("is-invalid");
     } else {
         $("#reminderDescription").removeClass("is-invalid");
+    }
+    if (reminderIsMaintenance && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(reminderServiceKey)) {
+        hasError = true;
+        $("#reminderServiceKey").addClass("is-invalid");
+    } else {
+        $("#reminderServiceKey").removeClass("is-invalid");
     }
     if (reminderUseCustomThresholds) {
         //validate custom threshold values
@@ -270,6 +278,9 @@ function getAndValidateReminderRecordValues() {
         date: reminderDate,
         mileage: reminderMileage,
         description: reminderDescription,
+        isMaintenance: reminderIsMaintenance,
+        serviceKey: reminderServiceKey,
+        historyVerified: getReminderRecordModelData().historyVerified,
         notes: reminderNotes,
         metric: reminderOption,
         isRecurring: reminderIsRecurring,
@@ -288,6 +299,24 @@ function getAndValidateReminderRecordValues() {
         customMonthIntervalUnit: customMonthIntervalUnit,
         tags: reminderTags
     }
+}
+
+function toggleMaintenanceReminder() {
+    var checked = $("#reminderIsMaintenance").is(":checked");
+    $("#maintenanceServiceKeyContainer").toggle(checked);
+    if (checked) {
+        $("#reminderIsRecurring").prop("checked", true);
+        $("#reminderFixedIntervals").prop("checked", false);
+        enableRecurring();
+        suggestMaintenanceServiceKey();
+    }
+}
+
+function suggestMaintenanceServiceKey() {
+    if (!$("#reminderIsMaintenance").is(":checked")) return;
+    var input = $("#reminderServiceKey");
+    if (input.val()) return;
+    input.val($("#reminderDescription").val().toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
 }
 function createPlanRecordFromReminder(reminderRecordId) {
     //get values
@@ -361,4 +390,98 @@ function updateReminderAggregateLabels() {
     var notUrgentCount = $("tr td span.badge.text-bg-success").parents("tr:not('.override-hide')").length;
     var notUrgentLabel = $('[data-aggregate-type="noturgent-count"]');
     notUrgentLabel.text(`${notUrgentLabel.text().split(':')[0]}: ${notUrgentCount}`);
+}
+
+function filterMaintenanceReminders(mode, sender) {
+    var rows = $("#reminder-tab-pane table tbody tr");
+    rows.removeClass("override-hide");
+    if (mode == "maintenance") rows.filter("[data-maintenance='false']").addClass("override-hide");
+    if (mode == "other") rows.filter("[data-maintenance='true']").addClass("override-hide");
+    $(".reminder-view-filter").removeClass("active");
+    $(sender).addClass("active");
+    var maintenanceColumns = $("#reminder-tab-pane [data-column='date'], #reminder-tab-pane [data-column='odometer'], #reminder-tab-pane [data-column='duedays'], #reminder-tab-pane [data-column='duedistance'], #reminder-tab-pane [data-column='lastservice']");
+    if (mode == "maintenance") {
+        maintenanceColumns.show();
+        $("#reminder-tab-pane [data-column='metric'], #reminder-tab-pane [data-column='notes']").hide();
+    } else {
+        maintenanceColumns.hide();
+        $("#reminder-tab-pane [data-column='metric'], #reminder-tab-pane [data-column='notes']").show();
+    }
+    updateReminderAggregateLabels();
+}
+
+function showMaintenanceImportModal() {
+    $.get(`/Vehicle/GetMaintenanceImportPartialView?vehicleId=${GetVehicleId().vehicleId}`, function (data) {
+        $("#bulkImportModalContent").html(data);
+        $("#bulkImportModal").modal("show");
+    });
+}
+
+function clearMaintenanceImportPreview() {
+    $("#maintenanceImportResults").empty();
+    $("#commitMaintenanceImportButton").prop("disabled", true);
+}
+
+function readMaintenanceImportFile(input) {
+    clearMaintenanceImportPreview();
+    var file = input.files[0];
+    if (!file) return;
+    if (file.size > 1024 * 1024) {
+        errorToast("Import exceeds the 1 MB limit");
+        input.value = "";
+        return;
+    }
+    var reader = new FileReader();
+    reader.onload = event => $("#maintenanceImportContent").val(event.target.result);
+    reader.readAsText(file);
+}
+
+function maintenanceImportRequest() {
+    return {
+        vehicleId: window.maintenanceImportVehicleId,
+        type: $("#maintenanceImportType").val(),
+        content: $("#maintenanceImportContent").val()
+    };
+}
+
+function previewMaintenanceImport() {
+    $.post("/Vehicle/PreviewMaintenanceImport", { request: maintenanceImportRequest() }, function (data) {
+        renderMaintenanceImportResults(data);
+        $("#commitMaintenanceImportButton").prop("disabled", !data.success);
+    });
+}
+
+function commitMaintenanceImport() {
+    $("#commitMaintenanceImportButton").prop("disabled", true);
+    $.post("/Vehicle/CommitMaintenanceImport", { request: maintenanceImportRequest() }, function (data) {
+        renderMaintenanceImportResults(data);
+        if (data.success) {
+            successToast("Maintenance data imported");
+            getVehicleReminders(GetVehicleId().vehicleId);
+        }
+    });
+}
+
+function renderMaintenanceImportResults(data) {
+    var rows = data.rows || [];
+    var html = `<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Row</th><th>Service key</th><th>Status</th><th>Details</th></tr></thead><tbody>`;
+    rows.forEach(row => {
+        var color = row.isError ? "danger" : row.status == "Warning" ? "warning" : row.status == "Skip" ? "secondary" : "success";
+        html += `<tr><td>${row.row}</td><td>${encodeHTMLInput(row.serviceKey)}</td><td><span class="badge text-bg-${color}">${encodeHTMLInput(row.status)}</span></td><td>${encodeHTMLInput(row.message)}</td></tr>`;
+    });
+    html += "</tbody></table></div>";
+    $("#maintenanceImportResults").html(html);
+}
+
+function downloadMaintenanceTemplate() {
+    window.location.href = `/Vehicle/DownloadMaintenanceTemplate?vehicleId=${window.maintenanceImportVehicleId}&type=${$("#maintenanceImportType").val()}`;
+}
+
+function copyMaintenanceAiPrompt() {
+    var schedule = $("#maintenanceImportType").val() == "Schedule";
+    var fields = schedule
+        ? "service_key,name,mileage_interval,month_interval,notes"
+        : "service_key,date,odometer,cost,notes";
+    var prompt = `For ${document.title}, return only ${schedule ? "the recommended recurring maintenance schedule" : "the maintenance events in the attached report"} as CSV. Use exactly these headers: ${fields}. Use stable lowercase hyphenated service_key values, ISO YYYY-MM-DD dates, plain numbers without units or currency symbols, and leave optional unknown values blank.`;
+    navigator.clipboard.writeText(prompt).then(() => successToast("AI instructions copied"));
 }

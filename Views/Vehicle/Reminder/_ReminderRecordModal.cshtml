@@ -31,7 +31,16 @@
                 <div class="col-md-6 col-12" id="reminderOptions">
                     <input type="text" id="workAroundInput" style="height:0px; width:0px; display:none;">
                     <label for="reminderDescription">@translator.Translate(userLanguage,"Description")</label>
-                    <input type="text" id="reminderDescription" class="form-control" placeholder="@translator.Translate(userLanguage,"Reminder Description")" value="@Model.Description">
+                    <input type="text" id="reminderDescription" oninput="suggestMaintenanceServiceKey()" class="form-control" placeholder="@translator.Translate(userLanguage,"Reminder Description")" value="@Model.Description">
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" role="switch" onchange="toggleMaintenanceReminder()" id="reminderIsMaintenance" checked="@Model.IsMaintenance">
+                        <label class="form-check-label" for="reminderIsMaintenance">@translator.Translate(userLanguage, "Maintenance Item")</label>
+                    </div>
+                    <div id="maintenanceServiceKeyContainer" style="display:@(Model.IsMaintenance ? "block" : "none")">
+                        <label for="reminderServiceKey">@translator.Translate(userLanguage, "Service Key")</label>
+                        <input type="text" id="reminderServiceKey" class="form-control" placeholder="engine-oil" value="@Model.ServiceKey">
+                        <small class="form-text text-body-secondary">@translator.Translate(userLanguage, "Stable lowercase key used by schedule and history imports")</small>
+                    </div>
                     <label>@translator.Translate(userLanguage,"Remind me on")</label>
                     <div class="form-check">
                         <input class="form-check-input" onclick="enableRecurring()" type="radio" name="reminderMetricOptions" id="reminderMetricDate" value="@(ReminderMetric.Date)" checked="@(Model.Metric == ReminderMetric.Date)">
@@ -162,7 +171,9 @@
             createdFromRecord: @Model.CreatedFromRecord.ToString().ToLower(),
             mileageInterval: decodeHTMLEntities('@Model.ReminderMileageInterval.ToString()'), 
             monthInterval: decodeHTMLEntities('@Model.ReminderMonthInterval.ToString()'),
+            historyVerified: @Model.HistoryVerified.ToString().ToLower(),
             distanceUnit: decodeHTMLEntities('@distanceUnit')
         }
     }
+    toggleMaintenanceReminder();
 </script>

@@ -7,6 +7,9 @@
         public DateTime Date { get; set; }
         public int Mileage { get; set; }
         public string Description { get; set; } = string.Empty;
+        public bool IsMaintenance { get; set; } = false;
+        public string ServiceKey { get; set; } = string.Empty;
+        public bool HistoryVerified { get; set; } = false;
         public string Notes { get; set; } = string.Empty;
         public bool IsRecurring { get; set; } = false;
         public bool UseCustomThresholds { get; set; } = false;

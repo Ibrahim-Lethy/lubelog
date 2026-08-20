@@ -58,6 +58,28 @@ namespace CarCareTracker.Controllers
             }
             return Json(OperationResponse.Conditional(result, string.Empty, StaticHelper.GenericErrorMessage));
         }
+        [HttpPost]
+        public IActionResult QuickUpdateOdometer(int vehicleId, int mileage, string date)
+        {
+            if (!_userLogic.UserCanEditVehicle(GetUserID(), vehicleId, HouseholdPermission.Edit))
+            {
+                return Json(OperationResponse.Failed("Access Denied"));
+            }
+            var currentMileage = _vehicleLogic.GetMaxMileage(vehicleId);
+            if (mileage < currentMileage) return Json(OperationResponse.Failed($"Odometer cannot be lower than the current reading of {currentMileage:N0}"));
+            if (!DateTime.TryParse(date, out var recordedDate)) return Json(OperationResponse.Failed("Enter a valid date"));
+            var record = new OdometerRecord
+            {
+                VehicleId = vehicleId,
+                Date = recordedDate.Date,
+                InitialMileage = currentMileage == default ? mileage : currentMileage,
+                Mileage = mileage,
+                Notes = "Quick odometer update"
+            };
+            var result = _odometerRecordDataAccess.SaveOdometerRecordToVehicle(record);
+            if (result) _eventLogic.PublishEvent(GetUserID(), WebHookPayload.FromOdometerRecord(record, "odometerrecord.add", User.Identity?.Name ?? string.Empty));
+            return Json(result ? OperationResponse.Succeed("Odometer updated", mileage) : OperationResponse.Failed());
+        }
         [TypeFilter(typeof(CollaboratorFilter))]
         [HttpGet]
         public IActionResult GetAddOdometerRecordPartialView(int vehicleId)

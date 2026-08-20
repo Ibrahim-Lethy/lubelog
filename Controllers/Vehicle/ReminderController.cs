@@ -12,6 +12,16 @@ namespace CarCareTracker.Controllers
             var currentMileage = _vehicleLogic.GetMaxMileage(vehicleId);
             var reminders = _reminderRecordDataAccess.GetReminderRecordsByVehicleId(vehicleId);
             List<ReminderRecordViewModel> results = _reminderHelper.GetReminderRecordViewModels(reminders, currentMileage, dateCompare);
+            var serviceRecords = _serviceRecordDataAccess.GetServiceRecordsByVehicleId(vehicleId);
+            foreach (var reminder in results.Where(x => x.IsMaintenance))
+            {
+                var source = reminders.First(x => x.Id == reminder.Id);
+                var matchingRecords = serviceRecords.Where(x => x.ServiceKey.Equals(reminder.ServiceKey, StringComparison.OrdinalIgnoreCase)).ToList();
+                var latest = matchingRecords.OrderByDescending(x => x.Date).ThenByDescending(x => x.Mileage).FirstOrDefault();
+                reminder.LastServiceDate = latest?.Date;
+                reminder.LastServiceMileage = matchingRecords.Where(x => x.Mileage > 0).OrderByDescending(x => x.Date).ThenByDescending(x => x.Mileage).FirstOrDefault()?.Mileage;
+                reminder.Proximity = MaintenanceScheduleHelper.CalculateProximity(source, currentMileage, dateCompare);
+            }
             return results;
         }
         private bool GetAndUpdateVehicleUrgentOrPastDueReminders(int vehicleId)
@@ -21,7 +31,7 @@ namespace CarCareTracker.Controllers
             if (_config.GetUserConfig(User).EnableAutoReminderRefresh && _userLogic.UserCanEditVehicle(GetUserID(), vehicleId, HouseholdPermission.Edit))
             {
                 //check for past due reminders that are eligible for recurring.
-                var pastDueAndRecurring = result.Where(x => x.Urgency == ReminderUrgency.PastDue && x.IsRecurring);
+                var pastDueAndRecurring = result.Where(x => x.Urgency == ReminderUrgency.PastDue && x.IsRecurring && !x.IsMaintenance);
                 if (pastDueAndRecurring.Any())
                 {
                     foreach (ReminderRecordViewModel reminderRecord in pastDueAndRecurring)
@@ -57,7 +67,9 @@ namespace CarCareTracker.Controllers
         public IActionResult GetReminderRecordsByVehicleId(int vehicleId)
         {
             var result = GetRemindersAndUrgency(vehicleId, DateTime.Now);
-            result = result.OrderByDescending(x => x.Urgency).ToList();
+            result = result.OrderByDescending(x => x.IsMaintenance && (!x.HistoryVerified || x.Urgency == ReminderUrgency.PastDue))
+                .ThenByDescending(x => x.IsMaintenance ? x.Proximity : (double)x.Urgency)
+                .ThenBy(x => x.Description).ToList();
             return PartialView("Reminder/_ReminderRecords", result);
         }
         [TypeFilter(typeof(CollaboratorFilter))]
@@ -117,6 +129,24 @@ namespace CarCareTracker.Controllers
             {
                 return Json(OperationResponse.Failed("Access Denied"));
             }
+            if (reminderRecord.IsMaintenance)
+            {
+                reminderRecord.ServiceKey = reminderRecord.ServiceKey.Trim().ToLowerInvariant();
+                if (!MaintenanceImportHelper.IsValidServiceKey(reminderRecord.ServiceKey))
+                {
+                    return Json(OperationResponse.Failed("Maintenance service key must be a lowercase slug such as engine-oil"));
+                }
+                var duplicateKey = _reminderRecordDataAccess.GetReminderRecordsByVehicleId(reminderRecord.VehicleId)
+                    .Any(x => x.Id != reminderRecord.Id && x.IsMaintenance && x.ServiceKey.Equals(reminderRecord.ServiceKey, StringComparison.OrdinalIgnoreCase));
+                if (duplicateKey) return Json(OperationResponse.Failed("A maintenance item already uses this service key"));
+                reminderRecord.IsRecurring = true;
+                reminderRecord.FixedIntervals = false;
+                if (reminderRecord.Id == default && !reminderRecord.HistoryVerified)
+                {
+                    reminderRecord.Date = DateTime.Today.ToShortDateString();
+                    reminderRecord.Mileage = _vehicleLogic.GetMaxMileage(reminderRecord.VehicleId);
+                }
+            }
             var result = _reminderRecordDataAccess.SaveReminderRecordToVehicle(reminderRecord.ToReminderRecord());
             if (result)
             {
@@ -155,6 +185,9 @@ namespace CarCareTracker.Controllers
                 Id = result.Id,
                 Date = result.Date.ToShortDateString(),
                 Description = result.Description,
+                IsMaintenance = result.IsMaintenance,
+                ServiceKey = result.ServiceKey,
+                HistoryVerified = result.HistoryVerified,
                 Notes = result.Notes,
                 VehicleId = result.VehicleId,
                 Mileage = result.Mileage,

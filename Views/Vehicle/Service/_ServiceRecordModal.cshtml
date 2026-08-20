@@ -32,8 +32,21 @@
                             </div>
                         }
                     </div>
+                    <label for="serviceRecordMaintenanceItem">@translator.Translate(userLanguage,"Maintenance Item")</label>
+                    <select id="serviceRecordMaintenanceItem" class="form-select" onchange="toggleServiceMaintenanceItem()">
+                        <!option value="" selected="@(string.IsNullOrWhiteSpace(Model.ServiceKey))">@translator.Translate(userLanguage, "Untracked Service")</!option>
+                        @foreach (var maintenanceItem in Model.MaintenanceItems)
+                        {
+                            <!option value="@maintenanceItem.ServiceKey" data-description="@maintenanceItem.Description" selected="@Model.ServiceKey.Equals(maintenanceItem.ServiceKey, StringComparison.OrdinalIgnoreCase)">@maintenanceItem.Description</!option>
+                        }
+                    </select>
                     <label for="serviceRecordDescription">@translator.Translate(userLanguage,"Description")</label>
-                    <input type="text" id="serviceRecordDescription" class="form-control" placeholder="@translator.Translate(userLanguage,"Description of item(s) serviced(i.e. Oil Change)")" value="@Model.Description">
+                    <input type="text" id="serviceRecordDescription" class="form-control" placeholder="@translator.Translate(userLanguage,"Description of item(s) serviced(i.e. Oil Change)")" value="@Model.Description" readonly="@(!string.IsNullOrWhiteSpace(Model.ServiceKey))">
+                    <div class="row">
+                        <div class="col-12">
+                            <a href="/Vehicle/Index?vehicleId=@Model.VehicleId&tab=reminder" class="btn btn-link">@translator.Translate(userLanguage, "Manage Maintenance Items")</a>
+                        </div>
+                    </div>
                     @if (isNew)
                     {
                         <div class="row">
@@ -113,6 +126,7 @@
     function getServiceRecordModelData(){
         return {id: @Model.Id}
     }
+    toggleServiceMaintenanceItem();
 </script>
 @if (isNew && userConfig.EnableAutoFillOdometer)
 {
